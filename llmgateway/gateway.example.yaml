@@ -1,0 +1,67 @@
+service_name: deepseek-protocol-gateway
+
+# Configure a strong random key before exposing the service.
+api_keys:
+  - ${GATEWAY_API_KEY}
+
+database_url: data/gateway.db
+structured_output_retries: 1
+
+retry:
+  max_attempts_per_route: 3
+  max_total_attempts: 3
+  base_delay_seconds: 0.3
+  max_delay_seconds: 3
+  retry_statuses: [408, 409, 429, 500, 502, 503, 504]
+
+circuit_breaker:
+  failure_threshold: 5
+  cooldown_seconds: 30
+
+# Applied separately to each caller + public model alias.
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
+  burst: 10
+
+stream_checkpoint:
+  enabled: false
+  flush_interval_seconds: 1
+  max_chars: 200000
+
+providers:
+  deepseek_responses:
+    base_url: ${DEEPSEEK_RESPONSES_BASE_URL:-https://api.deepseek.com}
+    api_key: ${DEEPSEEK_API_KEY}
+    timeout_seconds: 120
+    endpoint_paths:
+      openai_responses: /responses
+  deepseek_anthropic:
+    base_url: ${DEEPSEEK_ANTHROPIC_BASE_URL:-https://api.deepseek.com/anthropic}
+    api_key: ${DEEPSEEK_API_KEY}
+    timeout_seconds: 120
+
+models:
+  deepseek-v4-pro:
+    strategy: priority
+    routes:
+      - provider: deepseek_responses
+        model: deepseek-v4-pro
+        protocol: openai_responses
+        api: chat
+  deepseek-v4-flash:
+    strategy: priority
+    routes:
+      - provider: deepseek_anthropic
+        model: deepseek-flash
+        protocol: anthropic_messages
+        api: chat
+
+# Update these estimates from the provider's current published pricing.
+pricing:
+  deepseek-v4-pro:
+    input_per_million: 0
+    output_per_million: 0
+  deepseek-flash:
+    input_per_million: 0
+    output_per_million: 0
